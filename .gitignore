@@ -1,0 +1,11 @@
+data/
+reference-docs/
+web/node_modules/
+web/.next/
+backend/.venv/
+__pycache__/
+*.pyc
+BUILD_PLAN.md
+TerraRAG_Terraform_Terragrunt_Developer_Spec.pdf
+.playwright-cli/
+output/
