@@ -2,6 +2,8 @@
 
 TerraRAG is a private, local-first knowledge assistant for Terraform and Terragrunt repositories. It combines exact HCL parsing, Terragrunt relationship extraction, Ollama embeddings and generation, Qdrant semantic search, SQLite full-text search, clickable citations, a source viewer, and a retrieval inspector.
 
+<img width="1712" height="1194" alt="TerraRagSS" src="https://github.com/user-attachments/assets/640c5091-f0a1-43db-afd5-43a55c37a71c" />
+
 ## Quick start
 
 Install these prerequisites:
