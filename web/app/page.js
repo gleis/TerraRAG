@@ -3,18 +3,51 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-const STARTERS = [
+const REPOSITORY_QUERY_BANK = [
   "Where does prod set instance_type?",
   "How does dev differ from prod?",
   "Where does the app get its VPC ID?",
   "Explain the production architecture.",
+  "Teach me how values flow between modules in this repository.",
+  "Which resources depend on outputs from another module?",
+  "Show me the most important environment-specific overrides.",
+  "Which configuration would be risky to change without a plan review?",
+  "Trace the network configuration from its definition to its consumers.",
+  "What reusable modules exist, and where are they called?",
+  "Explain the repository structure to someone new to this project.",
+  "Which variables have different values in development and production?",
+  "Find one important dependency chain and teach me how it works.",
+  "What should I inspect first before changing this infrastructure?",
 ];
-const DOC_STARTERS = [
-  "What does Terraform lifecycle prevent_destroy do?",
-  "How do Terragrunt dependency blocks expose outputs?",
-  "How does Terraform for_each differ from count?",
-  "How does Terragrunt include configuration work?",
+const DOCUMENTATION_QUERY_BANK = [
+  "Teach me Terraform lifecycle prevent_destroy with an HCL example.",
+  "Explain how Terragrunt dependency blocks expose outputs, with an example.",
+  "Compare Terraform for_each and count and show when to use each.",
+  "Teach me how Terragrunt include configuration works.",
+  "Explain Terraform state in plain language and why remote state matters.",
+  "Show how Terraform module inputs and outputs work together.",
+  "When should I use depends_on, and when should I avoid it?",
+  "Teach me Terraform variable validation with a small HCL example.",
+  "Explain Terragrunt mock_outputs and when they are useful.",
+  "Compare create_before_destroy and prevent_destroy.",
+  "How do Terraform data sources differ from managed resources?",
+  "Teach me how Terraform conditional expressions work.",
+  "Explain Terragrunt run queue ordering and dependency direction.",
+  "What are the safest steps for refactoring a Terraform resource address?",
+  "Show how a Terraform dynamic block works and explain its tradeoffs.",
+  "Teach me how Terragrunt remote state configuration is inherited.",
+  "How do preconditions and postconditions improve Terraform safety?",
+  "Explain Terraform provider version constraints and lock files.",
 ];
+
+function randomFive(items) {
+  const shuffled = [...new Set(items)];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+  }
+  return shuffled.slice(0, 5);
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`${API}${path}`, {
@@ -35,22 +68,80 @@ function FileGlyph({ language }) {
 }
 
 function InlineText({ text }) {
-  const pieces = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[file:[^\]]+\])/g);
+  const pieces = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*|\[file:[^\]]+\])/g);
   return pieces.map((piece, index) => {
     if (piece.startsWith("`") && piece.endsWith("`")) return <code key={index}>{piece.slice(1, -1)}</code>;
     if (piece.startsWith("**") && piece.endsWith("**")) return <strong key={index}>{piece.slice(2, -2)}</strong>;
+    if (piece.startsWith("*") && piece.endsWith("*")) return <em key={index}>{piece.slice(1, -1)}</em>;
     if (piece.startsWith("[file:")) return <span className="inline-citation" key={index}>{piece}</span>;
     return piece;
   });
+}
+
+function ProseSection({ text, sectionKey }) {
+  const blocks = [];
+  let paragraph = [];
+  let bullets = [];
+  let numbered = [];
+  let blockIndex = 0;
+
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    blocks.push(<p key={`${sectionKey}-p-${blockIndex++}`}><InlineText text={paragraph.join(" ")} /></p>);
+    paragraph = [];
+  }
+
+  function flushBullets() {
+    if (!bullets.length) return;
+    blocks.push(<ul key={`${sectionKey}-ul-${blockIndex++}`}>{bullets.map((item, index) => <li key={index}><InlineText text={item} /></li>)}</ul>);
+    bullets = [];
+  }
+
+  function flushNumbered() {
+    if (!numbered.length) return;
+    blocks.push(<ol key={`${sectionKey}-ol-${blockIndex++}`}>{numbered.map((item, index) => <li key={index}><InlineText text={item} /></li>)}</ol>);
+    numbered = [];
+  }
+
+  function flushAll() {
+    flushParagraph();
+    flushBullets();
+    flushNumbered();
+  }
+
+  text.split("\n").forEach((line) => {
+    const clean = line.trim();
+    const heading = clean.match(/^#{1,4}\s+(.+)$/);
+    const bullet = clean.match(/^[-*]\s+(.+)$/);
+    const ordered = clean.match(/^\d+[.)]\s+(.+)$/);
+
+    if (!clean) return flushAll();
+    if (heading) {
+      flushAll();
+      blocks.push(<h3 key={`${sectionKey}-h-${blockIndex++}`}><InlineText text={heading[1]} /></h3>);
+    } else if (bullet) {
+      flushParagraph();
+      flushNumbered();
+      bullets.push(bullet[1]);
+    } else if (ordered) {
+      flushParagraph();
+      flushBullets();
+      numbered.push(ordered[1]);
+    } else {
+      flushBullets();
+      flushNumbered();
+      paragraph.push(clean);
+    }
+  });
+  flushAll();
+  return blocks;
 }
 
 function AnswerContent({ text }) {
   const sections = text.split(/```(?:[a-z0-9_-]+)?\n([\s\S]*?)```/gi);
   return <div className="message-body">{sections.map((section, index) => {
     if (index % 2) return <pre key={index}><code>{section.trim()}</code></pre>;
-    return section.split(/\n\s*\n/).filter(Boolean).map((paragraph, paragraphIndex) => (
-      <p key={`${index}-${paragraphIndex}`}><InlineText text={paragraph} /></p>
-    ));
+    return <ProseSection text={section} sectionKey={index} key={index} />;
   })}</div>;
 }
 
@@ -95,6 +186,8 @@ export default function Home() {
   const [source, setSource] = useState(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionBatch, setSuggestionBatch] = useState(0);
 
   const selected = useMemo(() => repositories.find((repo) => repo.id === selectedId), [repositories, selectedId]);
 
@@ -124,6 +217,11 @@ export default function Home() {
       setGraph(nextGraph);
     }).catch((reason) => setError(reason.message));
   }, [selectedId, selected?.status]);
+
+  useEffect(() => {
+    setSuggestions([]);
+    setSuggestionBatch((current) => current + 1);
+  }, [selectedId]);
 
   async function registerRepository(event) {
     event.preventDefault();
@@ -189,7 +287,19 @@ export default function Home() {
 
   const ready = health?.status === "ready";
   const isReference = selected?.root_path === "reference-docs";
-  const activeStarters = isReference ? DOC_STARTERS : STARTERS;
+  const repositoryFileQueries = files
+    .filter((file) => file.path.endsWith(".tf") || file.path.endsWith(".hcl"))
+    .flatMap((file) => [
+      `Teach me what ${file.path} configures and why it matters.`,
+      `Trace the important values flowing into and out of ${file.path}.`,
+    ]);
+  const queryPool = isReference ? DOCUMENTATION_QUERY_BANK : [...REPOSITORY_QUERY_BANK, ...repositoryFileQueries];
+  const activeSuggestions = suggestions.length ? suggestions : queryPool.slice(0, 5);
+
+  function generateQueries() {
+    setSuggestions(randomFive(queryPool));
+    setSuggestionBatch((current) => current + 1);
+  }
 
   return (
     <main className="app-shell">
@@ -233,11 +343,20 @@ export default function Home() {
         <section className="conversation">
           <div className="conversation-heading">
             <span>02</span>
-            <div><small>QUERY CONSOLE / GROUNDED MODE</small><p>Select an indexed repository, enter a question, then inspect the ranked evidence at right.</p></div>
+            <div><small>QUERY CONSOLE / GROUNDED LEARNING MODE</small><p>Ask what, why, or how. Answers explain the mechanism, show an evidence-based example, and surface caveats.</p></div>
             <div className="mode-flags"><span>SEM</span><span>LEX</span><span>GRAPH</span></div>
           </div>
 
           <div className="messages" aria-live="polite">
+            <section className="query-lab" aria-label="Random query generator">
+              <div className="query-lab-heading">
+                <div><small>QUERY LAB / EXPLORE THE INDEX</small><p>Generate five prompts, then run any one to get a taught, evidence-grounded answer.</p></div>
+                <button type="button" onClick={generateQueries} disabled={selected?.status !== "ready" || Boolean(busy)}><span>↻</span> Generate 5 random queries</button>
+              </div>
+              <div className="query-lab-grid" key={suggestionBatch}>
+                {activeSuggestions.map((item, index) => <button type="button" key={item} disabled={selected?.status !== "ready" || Boolean(busy)} onClick={() => ask(item)}><b>{String(index + 1).padStart(2, "0")}</b><span>{item}</span><i>↗</i></button>)}
+              </div>
+            </section>
             {!messages.length && <div className="welcome">
               <div className="instruction-grid">
                 <div><b>01</b><span>SELECT OR REGISTER<br />A REPOSITORY</span></div>
@@ -245,8 +364,12 @@ export default function Home() {
                 <div><b>03</b><span>QUERY AND OPEN<br />CITED SOURCE LINES</span></div>
               </div>
               <p className="instruction-note"><b>OPERATOR NOTE</b> Answers are constrained to the selected {isReference ? "official documentation corpus" : "repository evidence"}. TerraRAG performs no write actions against source material.</p>
-              <small className="example-label">EXAMPLE QUERIES</small>
-              <div className="starters">{activeStarters.map((item) => <button key={item} disabled={selected?.status !== "ready" || Boolean(busy)} onClick={() => ask(item)}>{item}<span>↗</span></button>)}</div>
+              <div className="learning-contract" aria-label="How TerraRAG teaches">
+                <span>TEACHING OUTPUT</span>
+                <div><b>01</b><p>Direct answer<br /><small>start with the conclusion</small></p></div>
+                <div><b>02</b><p>Worked example<br /><small>small, cited HCL</small></p></div>
+                <div><b>03</b><p>Operational context<br /><small>use cases and caveats</small></p></div>
+              </div>
             </div>}
             {messages.map((message, index) => <article className={`message ${message.role}`} key={`${message.role}-${index}`}>
               <small>{message.role === "user" ? "QUESTION" : `TERRARAG · ${message.model || "LOCAL"}`}</small>
@@ -258,7 +381,7 @@ export default function Home() {
           <form className="question-box" onSubmit={(event) => { event.preventDefault(); ask(); }}>
             <label htmlFor="repository-query">QUERY_INPUT</label>
             <textarea id="repository-query" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={selected?.status === "ready" ? isReference ? "Ask about Terraform or Terragrunt behavior, syntax, commands, or patterns…" : "Ask about resources, inputs, inheritance, or dependencies…" : "Index a repository before asking questions"} disabled={selected?.status !== "ready" || Boolean(busy)} rows={3} />
-            <div><span>{isReference ? "Official versioned documentation only" : "Repository evidence only"} · no write actions</span><button disabled={!question.trim() || Boolean(busy) || selected?.status !== "ready"}>Ask TerraRAG <b>↗</b></button></div>
+            <div><span>Teaching mode · explanation · example · caveats · cited evidence</span><button disabled={!question.trim() || Boolean(busy) || selected?.status !== "ready"}>Ask TerraRAG <b>↗</b></button></div>
           </form>
         </section>
 
