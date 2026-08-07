@@ -1,93 +1,125 @@
 # TerraRAG
 
-TerraRAG is a private, local-first knowledge assistant for Terraform and Terragrunt repositories. The MVP includes Tree-sitter HCL parsing with exact lines, Terragrunt relationship extraction, incremental Ollama embeddings, Qdrant semantic search, SQLite FTS5 and structural edges, grounded local generation, clickable citations, a source viewer, and a RAG inspector.
+TerraRAG is a private, local-first knowledge assistant for Terraform and Terragrunt repositories. It combines exact HCL parsing, Terragrunt relationship extraction, Ollama embeddings and generation, Qdrant semantic search, SQLite full-text search, clickable citations, a source viewer, and a retrieval inspector.
 
-The detailed delivery sequence is in [BUILD_PLAN.md](BUILD_PLAN.md). The product requirements are in `TerraRAG_Terraform_Terragrunt_Developer_Spec.pdf`.
+## Quick start
 
-## Vader - Apple containers
+Install these prerequisites:
 
-Prerequisites already configured on `vader`:
+- Git, `make`, and `curl`
+- A supported container runtime: Docker Compose, Podman Compose, or Apple containers
+- At least 8 GB of free memory and enough disk space for the selected Ollama models
 
-- Apple `container` 1.2.0
-- native Ollama on `127.0.0.1:11434`
-- `gemma4:latest` generation model
-- `qwen3-embedding:0.6b` embedding model
-- `host.container.internal` localhost bridge
-
-Start or rebuild the complete stack:
+Clone and start TerraRAG:
 
 ```sh
-make apple-up
+git clone https://github.com/gleis/TerraRAG.git
+cd TerraRAG
+make up
 ```
 
-Then open:
+`make up` detects an available runtime, builds the application, starts its services, downloads the configured local models when necessary, and runs a smoke test. The first start takes longer because container images and models must be downloaded.
+
+Open:
 
 - UI: <http://127.0.0.1:3000>
-- API docs: <http://127.0.0.1:8000/docs>
-- aggregate readiness: <http://127.0.0.1:8000/health>
-- Qdrant: <http://127.0.0.1:6333/dashboard>
+- API documentation: <http://127.0.0.1:8000/docs>
+- Readiness report: <http://127.0.0.1:8000/health>
+- Qdrant dashboard: <http://127.0.0.1:6333/dashboard>
 
-The included `example-infra` repository is already registered and indexed on Vader. Try these questions:
+Useful commands:
 
-- Where does prod set `instance_type`?
-- Where does the app get its VPC ID?
-- How does dev differ from prod?
-- Explain the production architecture.
+```sh
+make status
+make smoke
+make acceptance
+make down
+```
 
-### Official reference documentation
+If more than one runtime is installed, select one explicitly:
 
-TerraRAG can maintain a separately selectable, version-pinned corpus of official Terraform and Terragrunt documentation. The current pins are Terraform language docs `v1.15.x` and Terragrunt docs `v1.1.2`.
+```sh
+TERRARAG_RUNTIME=docker make up
+TERRARAG_RUNTIME=podman make up
+TERRARAG_RUNTIME=apple make up
+```
 
-Download the pinned upstream Markdown/MDX sources and index them while the stack is running:
+## Index a repository
+
+By default, the TerraRAG project directory is mounted read-only at `/repos`, so the included `example-infra` directory is immediately available. In the UI:
+
+1. Enter `example-infra` under **Path below /repos**.
+2. Select **Register path**.
+3. Select **Build index**.
+4. Ask a question, such as `Where does prod set instance_type?`.
+
+To make other repositories available, mount their common parent directory when starting TerraRAG:
+
+```sh
+HOST_REPOSITORY_ROOT=/absolute/path/to/projects make up
+```
+
+Then register a repository using its path relative to that directory. Source mounts are read-only, paths cannot escape `/repos`, and common secret and state files are excluded from indexing.
+
+## Official Terraform and Terragrunt documentation
+
+TerraRAG can maintain a separate, selectable corpus of version-pinned official documentation. With the application running:
 
 ```sh
 make docs-refresh
 ```
 
-The downloaded corpus is local runtime data under `reference-docs/` and is not committed. The UI labels it as official, version-pinned, and read-only. Select **Official Terraform v1.15.x + Terragrunt v1.1.2 Docs** to ask reference questions; select a repository for questions about the repository's actual configuration.
+This downloads the reviewed Terraform `v1.15.x` and Terragrunt `v1.1.2` documentation into the ignored `reference-docs/` runtime directory and indexes it. Select **Official Terraform v1.15.x + Terragrunt v1.1.2 Docs** in the UI for product-reference questions.
 
 Refreshes fail closed if an upstream commit no longer matches the reviewed pin. Update the commit constants in `scripts/sync-reference-docs.sh` only after reviewing upstream changes.
 
-To index another repository, mount a broader host directory by setting `HOST_REPOSITORY_ROOT` before `make apple-up`, then register a path below `/repos` in the UI. Source mounts are read-only.
-
-Operational commands:
+Validate both example corpora with:
 
 ```sh
-make apple-status
-make smoke
 make acceptance
 make docs-acceptance
-make apple-down
 ```
 
-After a macOS restart, recreate the host bridge if the startup check requests it:
+## Configuration
+
+The defaults run without a configuration file. Override settings through environment variables when needed:
 
 ```sh
-sudo container system dns create host.container.internal --localhost 203.0.113.113
+LLM_MODEL=gemma4:latest \
+EMBEDDING_MODEL=qwen3-embedding:0.6b \
+HOST_REPOSITORY_ROOT=/absolute/path/to/projects \
+make up
 ```
 
-## Local checks
+Compose users can copy `deploy/env.example` to `deploy/.env` for persistent overrides. `NEXT_PUBLIC_API_URL` is compiled into the web image, so rebuild with `make up` after changing it.
+
+## Local development and checks
+
+Run the backend tests:
 
 ```sh
 cd backend
 python3 -m venv .venv
 .venv/bin/pip install -e '.[test]'
 .venv/bin/pytest -q
+```
 
-cd ../web
+Build the web interface:
+
+```sh
+cd web
 npm ci
-npm audit --audit-level=high
 npm run build
 ```
 
 ## Privacy boundary
 
-Ollama remains a native host service for Apple GPU acceleration. Application containers reach it only through the configured localhost bridge. Published application ports bind to `127.0.0.1`, repository mounts are read-only, and cloud AI is disabled in the default configuration.
+All retrieval, embeddings, and generation run locally. Application ports bind to `127.0.0.1`, repository mounts are read-only, cloud AI is disabled by default, and indexed data remains in local container volumes. Review any repository before indexing it and keep credentials, state files, and other sensitive material outside the mounted root when possible.
 
-## Implemented API
+## API
 
 - `POST /repositories` and `POST /repositories/{id}/index`
 - `GET /repositories`, `/repositories/{id}`, `/files`, `/source`, and `/graph`
 - `POST /search` for raw hybrid retrieval
-- `POST /chat` for local grounded generation
+- `POST /chat` for locally generated, evidence-grounded answers
 - `GET /chunks/{id}` and `GET /health`
