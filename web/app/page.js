@@ -195,7 +195,7 @@ export default function Home() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand"><span className="brand-mark">TR</span><div><strong>TERRARAG</strong><small>// LOCAL IAC ANALYSIS</small></div></div>
-        <div className="runtime"><span className="runtime-label">SYS</span><StatusLight ok={ready} /><span>{ready ? "READY" : "DEGRADED"}</span><b>VADER · ARM64 · LOCAL</b></div>
+        <div className="runtime"><span className="runtime-label">SYS</span><StatusLight ok={ready} /><span>{ready ? "READY" : "DEGRADED"}</span><b>LOCAL · PRIVATE</b></div>
       </header>
 
       {error && <div className="error-banner"><span>ATTENTION</span>{error}<button onClick={() => setError("")}>×</button></div>}

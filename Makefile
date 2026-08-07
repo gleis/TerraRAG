@@ -1,4 +1,13 @@
-.PHONY: apple-up apple-down apple-status docs-sync docs-index docs-refresh docs-acceptance smoke acceptance test
+.PHONY: up down status apple-up apple-down apple-status docs-sync docs-index docs-refresh docs-acceptance smoke acceptance test
+
+up:
+	./scripts/runtime.sh up
+
+down:
+	./scripts/runtime.sh down
+
+status:
+	./scripts/runtime.sh status
 
 apple-up:
 	./scripts/apple-up.sh

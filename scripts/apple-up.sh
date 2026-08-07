@@ -34,7 +34,7 @@ if ! container run --rm docker.io/curlimages/curl:latest \
   exit 1
 fi
 
-mkdir -p "$PROJECT_DIR/data/qdrant" "$PROJECT_DIR/data/api"
+mkdir -p "$PROJECT_DIR/data/qdrant" "$PROJECT_DIR/data/api" "$PROJECT_DIR/reference-docs"
 chmod 700 "$PROJECT_DIR/data/qdrant" "$PROJECT_DIR/data/api"
 
 "$PROJECT_DIR/scripts/apple-down.sh"
@@ -56,6 +56,7 @@ container run --detach --name terrarag-api \
   --publish 127.0.0.1:8000:8000 \
   --volume "$PROJECT_DIR/data/api:/data" \
   --mount "type=bind,source=$REPOSITORY_MOUNT,target=/repos,readonly" \
+  --mount "type=bind,source=$PROJECT_DIR/reference-docs,target=/repos/reference-docs,readonly" \
   --env "LLM_MODEL=$LLM_MODEL" \
   --env "EMBEDDING_MODEL=$EMBEDDING_MODEL" \
   --env OLLAMA_URL=http://host.container.internal:11434 \

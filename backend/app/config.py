@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     app_name: str = "TerraRAG"
     environment: str = "development"
-    ollama_url: str = "http://host.container.internal:11434"
+    ollama_url: str = "http://127.0.0.1:11434"
     qdrant_url: str = "http://qdrant:6333"
     llm_model: str = "gemma4:latest"
     embedding_model: str = "qwen3-embedding:0.6b"

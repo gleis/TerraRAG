@@ -6,7 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN groupadd --system terrarag && useradd --system --gid terrarag --home-dir /app terrarag
+RUN groupadd --system terrarag \
+    && useradd --system --gid terrarag --home-dir /app terrarag \
+    && mkdir -p /data \
+    && chown terrarag:terrarag /data
 
 COPY pyproject.toml ./
 COPY app ./app

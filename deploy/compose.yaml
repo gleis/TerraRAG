@@ -1,6 +1,19 @@
 name: terrarag
 
 services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    security_opt:
+      - no-new-privileges:true
+
   qdrant:
     image: qdrant/qdrant:v1.15.4
     restart: unless-stopped
@@ -23,19 +36,20 @@ services:
     environment:
       LLM_MODEL: ${LLM_MODEL:-gemma4:latest}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen3-embedding:0.6b}
-      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       QDRANT_URL: http://qdrant:6333
       SQLITE_PATH: /data/terrarag.sqlite3
       REPOSITORY_ROOT: /repos
       DEBUG_LOG_CHUNKS: "false"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - api-data:/data
       - ${HOST_REPOSITORY_ROOT:-..}:/repos:ro
+      - ../reference-docs:/repos/reference-docs:ro
     depends_on:
+      ollama:
+        condition: service_healthy
       qdrant:
         condition: service_healthy
     healthcheck:
@@ -62,4 +76,5 @@ services:
 
 volumes:
   api-data:
+  ollama-data:
   qdrant-data:
