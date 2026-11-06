@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [maintenance/vendor-image-security]
+concurrency:
+  group: vendor-image-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -17,6 +20,10 @@ jobs:
           for i in $(seq 1 60); do curl -f http://127.0.0.1:11434/api/version && break; sleep 1; done
           curl -f http://127.0.0.1:11434/api/tags
           docker exec ollama-check ollama list
+          docker exec ollama-check ollama pull qwen3:0.6b
+          curl -fsS http://127.0.0.1:11434/api/generate -H 'Content-Type: application/json' -d '{"model":"qwen3:0.6b","prompt":"Say OK.","think":false,"stream":false,"keep_alive":0,"options":{"num_predict":32}}' | python3 -c 'import json,sys; assert json.load(sys.stdin)["response"].strip()'
+          docker exec ollama-check ollama pull qwen3-embedding:0.6b
+          curl -fsS http://127.0.0.1:11434/api/embed -H 'Content-Type: application/json' -d '{"model":"qwen3-embedding:0.6b","input":"maintenance validation","keep_alive":0}' | python3 -c 'import json,sys; assert len(json.load(sys.stdin)["embeddings"][0]) > 0'
       - uses: aquasecurity/trivy-action@0.35.0
         with:
           version: v0.76.2
@@ -32,21 +39,6 @@ jobs:
           path: ollama-review.json
       - if: always()
         run: docker logs ollama-check; docker rm -f ollama-check
-  qdrant-lock:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Resolve narrow Rust security updates
-        run: |
-          mkdir -p /tmp/qdrant-src
-          curl -fsSL https://codeload.github.com/qdrant/qdrant/tar.gz/222b2e44ab1c3f17e8246396ead6558e45041df7 -o /tmp/qdrant.tar.gz
-          echo 'd7d6c5b6197b63b24a89c753bb8ff2e3c9a67e5186087c2018c280b9d0398d80  /tmp/qdrant.tar.gz' | sha256sum -c -
-          tar -xzf /tmp/qdrant.tar.gz -C /tmp/qdrant-src --strip-components=1
-          docker run --rm -v /tmp/qdrant-src:/src -w /src rust:1.98.1-bookworm sh -ec 'cargo update -p rustls --precise 0.23.46; cargo update -p rand@0.8.5 --precise 0.8.6; cargo update -p xxhash-rust --precise 0.8.16'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: qdrant-patched-lock
-          path: /tmp/qdrant-src/Cargo.lock
   qdrant:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
