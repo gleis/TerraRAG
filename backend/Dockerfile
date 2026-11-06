@@ -11,9 +11,10 @@ RUN groupadd --system terrarag \
     && mkdir -p /data \
     && chown terrarag:terrarag /data
 
-COPY pyproject.toml ./
+COPY pyproject.toml requirements.lock ./
 COPY app ./app
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock \
+    && pip install --no-cache-dir --no-deps .
 
 USER terrarag
 EXPOSE 8000

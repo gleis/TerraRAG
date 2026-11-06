@@ -48,7 +48,7 @@ container run --detach --name terrarag-qdrant \
   --cpus 2 --memory 2g \
   --publish 127.0.0.1:6333:6333 \
   --volume "$PROJECT_DIR/data/qdrant:/qdrant/storage" \
-  docker.io/qdrant/qdrant:v1.15.4
+  docker.io/qdrant/qdrant:v1.20.0
 
 container run --detach --name terrarag-api \
   --cpus 4 --memory 4g \

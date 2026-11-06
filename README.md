@@ -125,3 +125,7 @@ All retrieval, embeddings, and generation run locally. Application ports bind to
 - `POST /search` for raw hybrid retrieval
 - `POST /chat` for locally generated, evidence-grounded answers
 - `GET /chunks/{id}` and `GET /health`
+
+## Maintenance (2026-11-06)
+
+Use Python 3.12 and `pip install --require-hashes -r backend/requirements-test.lock`, then `pip install --no-deps -e backend`. Install web dependencies with `npm ci` in `web/`. Dependency audits cover test and runtime packages. Ollama and Qdrant use explicit version tags.

@@ -2,7 +2,7 @@ name: terrarag
 
 services:
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.15
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama
@@ -15,7 +15,7 @@ services:
       - no-new-privileges:true
 
   qdrant:
-    image: qdrant/qdrant:v1.15.4
+    image: qdrant/qdrant:v1.20.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:6333:6333"
