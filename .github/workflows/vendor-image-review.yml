@@ -47,3 +47,31 @@ jobs:
         with:
           name: qdrant-patched-lock
           path: /tmp/qdrant-src/Cargo.lock
+  qdrant:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f deploy/secure/Qdrant.Dockerfile -t terrarag-qdrant:review .
+      - run: |
+          docker run -d --name qdrant-check -p 127.0.0.1:6333:6333 terrarag-qdrant:review
+          for i in $(seq 1 60); do curl -f http://127.0.0.1:6333/healthz && break; sleep 1; done
+          curl -f http://127.0.0.1:6333/dashboard/
+          curl -f -X PUT http://127.0.0.1:6333/collections/maintenance -H 'Content-Type: application/json' -d '{"vectors":{"size":2,"distance":"Cosine"}}'
+          curl -f -X PUT 'http://127.0.0.1:6333/collections/maintenance/points?wait=true' -H 'Content-Type: application/json' -d '{"points":[{"id":1,"vector":[1,0],"payload":{"source":"maintenance"}}]}'
+          curl -f -X POST http://127.0.0.1:6333/collections/maintenance/points/query -H 'Content-Type: application/json' -d '{"query":[1,0],"with_payload":true}' | python3 -c 'import json,sys; assert json.load(sys.stdin)["result"]["points"][0]["id"] == 1'
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: terrarag-qdrant:review
+          scanners: vuln
+          format: json
+          output: qdrant-review.json
+          exit-code: '0'
+          ignore-unfixed: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qdrant-review
+          path: qdrant-review.json
+      - if: always()
+        run: docker logs qdrant-check; docker rm -f qdrant-check
