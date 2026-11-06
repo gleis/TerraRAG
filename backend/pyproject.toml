@@ -14,7 +14,7 @@ dependencies = [
   "pathspec==0.12.1",
   "tree-sitter==0.25.2",
   "tree-sitter-hcl==1.2.0",
-  "uvicorn[standard]==0.35.0",
+  "uvicorn[standard]==0.54.0",
 ]
 
 [project.optional-dependencies]
