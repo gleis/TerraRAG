@@ -3,10 +3,10 @@ set -eu
 
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 DOC_ROOT=${REFERENCE_DOCS_ROOT:-$PROJECT_DIR/reference-docs}
-TERRAFORM_VERSION=v1.15.x
-TERRAFORM_COMMIT=d51c173975a555ba37ba4c6a1ad4e32af083cbc0
-TERRAGRUNT_VERSION=v1.1.2
-TERRAGRUNT_COMMIT=e68317418014e87b4fadcd4eadc948ae818e76a5
+TERRAFORM_VERSION=v1.17.x
+TERRAFORM_COMMIT=965264c6e76c012c7bdc40a0a4d2f5456b49bce0
+TERRAGRUNT_VERSION=v1.2.1
+TERRAGRUNT_COMMIT=ed85b42a24b52494212b622cd45cb349cec53a3b
 TEMP_DIR=$(mktemp -d)
 
 cleanup() {
@@ -14,8 +14,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-git clone --quiet --depth 1 --filter=blob:none --sparse \
-  https://github.com/hashicorp/web-unified-docs.git "$TEMP_DIR/hashicorp-docs"
+git init --quiet "$TEMP_DIR/hashicorp-docs"
+git -C "$TEMP_DIR/hashicorp-docs" remote add origin https://github.com/hashicorp/web-unified-docs.git
+git -C "$TEMP_DIR/hashicorp-docs" sparse-checkout init --cone
+git -C "$TEMP_DIR/hashicorp-docs" fetch --quiet --depth 1 --filter=blob:none origin "$TERRAFORM_COMMIT"
+git -C "$TEMP_DIR/hashicorp-docs" checkout --quiet --detach FETCH_HEAD
 git -C "$TEMP_DIR/hashicorp-docs" sparse-checkout set "content/terraform/$TERRAFORM_VERSION/docs/language"
 actual_terraform_commit=$(git -C "$TEMP_DIR/hashicorp-docs" rev-parse HEAD)
 if [ "$actual_terraform_commit" != "$TERRAFORM_COMMIT" ]; then

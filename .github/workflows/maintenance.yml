@@ -37,3 +37,14 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm audit --audit-level=low
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f deploy/compose.yaml up --build -d
+      - run: make smoke
+      - if: always()
+        run: docker compose -f deploy/compose.yaml logs --tail 80
+      - if: always()
+        run: docker compose -f deploy/compose.yaml down --volumes

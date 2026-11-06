@@ -71,7 +71,7 @@ TerraRAG can maintain a separate, selectable corpus of version-pinned official d
 make docs-refresh
 ```
 
-This downloads the reviewed Terraform `v1.15.x` and Terragrunt `v1.1.2` documentation into the ignored `reference-docs/` runtime directory and indexes it. Select **Official Terraform v1.15.x + Terragrunt v1.1.2 Docs** in the UI for product-reference questions.
+This downloads the reviewed Terraform `v1.17.x` and Terragrunt `v1.2.1` documentation into the ignored `reference-docs/` runtime directory and indexes it. Select **Official Terraform v1.17.x + Terragrunt v1.2.1 Docs** in the UI for product-reference questions.
 
 Refreshes fail closed if an upstream commit no longer matches the reviewed pin. Update the commit constants in `scripts/sync-reference-docs.sh` only after reviewing upstream changes.
 
@@ -129,3 +129,5 @@ All retrieval, embeddings, and generation run locally. Application ports bind to
 ## Maintenance (2026-11-06)
 
 Use Python 3.12 and `pip install --require-hashes -r backend/requirements-test.lock`, then `pip install --no-deps -e backend`. Install web dependencies with `npm ci` in `web/`. Dependency audits cover test and runtime packages. Ollama and Qdrant use explicit version tags.
+
+Refresh the official corpus quarterly (January, April, July, October): review upstream release notes, update the exact commits in `scripts/sync-reference-docs.sh`, then run `make docs-sync`, `make docs-index`, and `make docs-acceptance` against a disposable stack. The current pins were checked on 2026-11-06; syncing them produced 392 pages. Terraform uses an exact commit fetch so future upstream HEAD changes do not break reproducibility.
