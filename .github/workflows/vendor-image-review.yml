@@ -1,0 +1,34 @@
+name: Vendor image review
+on:
+  workflow_dispatch:
+  push:
+    branches: [maintenance/vendor-image-security]
+permissions:
+  contents: read
+jobs:
+  ollama:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f deploy/secure/Ollama.Dockerfile -t terrarag-ollama:review .
+      - run: |
+          docker run -d --name ollama-check -p 127.0.0.1:11434:11434 terrarag-ollama:review
+          for i in $(seq 1 60); do curl -f http://127.0.0.1:11434/api/version && break; sleep 1; done
+          curl -f http://127.0.0.1:11434/api/tags
+          docker exec ollama-check ollama list
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: terrarag-ollama:review
+          scanners: vuln
+          format: json
+          output: ollama-review.json
+          exit-code: '0'
+          ignore-unfixed: false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ollama-review
+          path: ollama-review.json
+      - if: always()
+        run: docker logs ollama-check; docker rm -f ollama-check
