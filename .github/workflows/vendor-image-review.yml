@@ -60,6 +60,8 @@ jobs:
           curl -f -X PUT http://127.0.0.1:6333/collections/maintenance -H 'Content-Type: application/json' -d '{"vectors":{"size":2,"distance":"Cosine"}}'
           curl -f -X PUT 'http://127.0.0.1:6333/collections/maintenance/points?wait=true' -H 'Content-Type: application/json' -d '{"points":[{"id":1,"vector":[1,0],"payload":{"source":"maintenance"}}]}'
           curl -f -X POST http://127.0.0.1:6333/collections/maintenance/points/query -H 'Content-Type: application/json' -d '{"query":[1,0],"with_payload":true}' | python3 -c 'import json,sys; assert json.load(sys.stdin)["result"]["points"][0]["id"] == 1'
+      - name: Verify TLS and persistence
+        run: bash scripts/qdrant-secure-smoke.sh
       - uses: aquasecurity/trivy-action@0.35.0
         with:
           version: v0.76.2
