@@ -1,6 +1,21 @@
-FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9ed5ab39e11cf6c70e9 AS dashboard
+FROM node:24.22.2-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8 AS npm-tool
+WORKDIR /opt/npm
+RUN apk upgrade --no-cache
+ADD https://registry.npmjs.org/npm/-/npm-12.2.2.tgz /tmp/npm.tgz
+RUN echo '2a09606d9c9a71fee31fe147b8d46a56e0b3422f15848d9aec9f3b231e3716c3d3b99a065a62175c6759b4150e03bf6fc0bf8825112a511573ba903b3ec41370  /tmp/npm.tgz' | sha512sum -c - \
+    && tar -xzf /tmp/npm.tgz --strip-components=1 \
+    && rm /tmp/npm.tgz \
+    && rm -rf /usr/local/lib/node_modules/npm /opt/yarn* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY web/build-tools/npm.package.json ./package.json
+COPY web/build-tools/npm.package-lock.json ./package-lock.json
+RUN node bin/npm-cli.js ci --omit=dev --ignore-scripts \
+    && ln -s /opt/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /opt/npm/bin/npx-cli.js /usr/local/bin/npx
+
+FROM npm-tool AS dashboard
 WORKDIR /ui
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache git
 ADD https://codeload.github.com/qdrant/qdrant-web-ui/tar.gz/90a83dd67bb9e3f84cf62daed14a9489ae1e7fdd /tmp/ui.tar.gz
 RUN echo '5f0375093d04998456536f123882cfab67ed9ef0227c9761a046a82b45fcfb55  /tmp/ui.tar.gz' | sha256sum -c - && tar -xzf /tmp/ui.tar.gz --strip-components=1
 COPY deploy/secure/dashboard.package.json ./package.json

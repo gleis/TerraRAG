@@ -22,6 +22,13 @@ jobs:
           actual=$(docker run --rm --entrypoint sh terrarag-api:review -c 'id -u; id -g')
           test "$expected" = "$actual"
           docker run --rm --user 1000:1000 --tmpfs /data:uid=1000,gid=1000,mode=0700 terrarag-api:review python -c 'from pathlib import Path; from app.storage import Storage; s=Storage(Path("/data/check.sqlite3")); assert s.list_repositories()==[]'
+      - name: Parse HCL and serve the API from the final image
+        run: |
+          docker run --rm --tmpfs /data:uid=999,gid=999 terrarag-api:review python -c 'from pathlib import Path; from tempfile import TemporaryDirectory; from app.ingestion import parse_repository; d=TemporaryDirectory(dir="/data"); p=Path(d.name).resolve(); (p/"main.tf").write_text("resource \"null_resource\" \"example\" {}\n"); files,chunks,edges=parse_repository(p); assert len(files)==1; assert any(c["address"]=="null_resource.example" for c in chunks); d.cleanup()'
+          docker run -d --name api-check --tmpfs /data:uid=999,gid=999 -e SQLITE_PATH=/data/check.sqlite3 -p 127.0.0.1:18000:8000 terrarag-api:review
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:18000/health/live -o /tmp/api-live.json && break; sleep 1; done
+          python3 -c 'import json; assert json.load(open("/tmp/api-live.json"))=={"status":"alive"}'
+          curl -fsS http://127.0.0.1:18000/openapi.json | python3 -c 'import json,sys; assert json.load(sys.stdin)["info"]["title"]=="TerraRAG API"'
       - name: Build and validate patched npm
         run: |
           docker build --target npm-tool -t terrarag-npm:review web
@@ -66,4 +73,6 @@ jobs:
           name: application-images-${{ runner.arch }}
           path: '*-image.json'
       - if: always()
-        run: docker logs web-check; docker rm -f web-check
+        run: |
+          docker logs web-check; docker rm -f web-check
+          docker logs api-check; docker rm -f api-check

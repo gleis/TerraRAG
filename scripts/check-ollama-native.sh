@@ -15,8 +15,7 @@ docker run --rm --entrypoint sh "$image" -ec '
   loader=/usr/lib/ld-linux-x86-64.so.2
   case "$(uname -m)" in aarch64) loader=/usr/lib/ld-linux-aarch64.so.1;; esac
   "$loader" --list /usr/bin/ollama
-  dirs=$(find /usr/lib/ollama -type d | paste -sd : -)
-  export LD_LIBRARY_PATH="$dirs:${LD_LIBRARY_PATH:-}"
+  system_library_path=${LD_LIBRARY_PATH:-}
   find /usr/lib/ollama -type f | while IFS= read -r file; do
     magic=$(head -c 4 "$file" | od -An -tx1 | tr -d " \n")
     [ "$magic" = 7f454c46 ] || continue
@@ -27,7 +26,9 @@ docker run --rm --entrypoint sh "$image" -ec '
     case "$machine:$kind" in 3e00:0200|3e00:0300|b700:0200|b700:0300) ;; *) continue;; esac
     # Runtime-injected NVIDIA driver libraries are an explicit external
     # precondition. Every other missing native dependency fails this check.
-    output=$("$loader" --list "$file" 2>&1) || {
+    # Check the selected backend directory plus the common Ollama directory,
+    # not a union that could borrow a missing library from another variant.
+    output=$(LD_LIBRARY_PATH="$(dirname "$file"):/usr/lib/ollama:$system_library_path" "$loader" --list "$file" 2>&1) || {
       printf "%s\n" "$output"
       printf "%s\n" "$output" | grep -Eq "(libcuda.so.1|libnvidia-ml.so.1): cannot open shared object file" || exit 1
       printf "External NVIDIA driver required: %s\n" "$file"

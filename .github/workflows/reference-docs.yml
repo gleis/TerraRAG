@@ -1,0 +1,50 @@
+name: Official reference acceptance
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      LLM_MODEL: qwen3:1.7b
+      EMBEDDING_MODEL: qwen3-embedding:0.6b
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the pinned official corpus
+        run: make docs-sync
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/secure/Qdrant.Dockerfile
+          tags: terrarag-qdrant:1.20.0-maintenance
+          load: true
+          cache-from: type=gha,scope=qdrant-security-${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=qdrant-security-${{ runner.arch }}
+      - name: Build the maintained model service
+        run: docker build -f deploy/secure/Ollama.Dockerfile -t terrarag-ollama:0.40.15-maintenance .
+      - name: Start local services
+        run: docker compose -f deploy/compose.yaml up --build --wait api
+      - name: Load real local models
+        run: |
+          docker compose -f deploy/compose.yaml exec -T ollama ollama pull "$LLM_MODEL"
+          docker compose -f deploy/compose.yaml exec -T ollama ollama pull "$EMBEDDING_MODEL"
+      - name: Index and validate retrieval and citations
+        run: |
+          set -o pipefail
+          make docs-index 2>&1 | tee reference-index.log
+          make docs-acceptance 2>&1 | tee reference-acceptance.log
+      - if: always()
+        run: docker compose -f deploy/compose.yaml logs --tail 100 > service-logs.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reference-acceptance
+          path: |
+            reference-index.log
+            reference-acceptance.log
+            service-logs.txt
+      - if: always()
+        run: docker compose -f deploy/compose.yaml down --volumes

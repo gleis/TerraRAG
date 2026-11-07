@@ -128,6 +128,10 @@ All retrieval, embeddings, and generation run locally. Application ports bind to
 
 ## Maintenance (2026-11-06)
 
-Use Python 3.12 and `pip install --require-hashes -r backend/requirements-test.lock`, then `pip install --no-deps -e backend`. Install web dependencies with `npm ci` in `web/`. Dependency audits cover test and runtime packages. Ollama and Qdrant use explicit version tags.
+Use Python 3.12 and `pip install --require-hashes -r backend/requirements-test.lock`, then `pip install --no-deps -e backend`. Install web dependencies with `npm ci` in `web/`. Dependency audits cover test and runtime packages. The API container uses pinned Python 3.13.18 packages; the development suite also runs on Python 3.12. Use Node.js 24 for the web build.
+
+Compose builds maintained Ollama 0.40.15 and Qdrant 1.20.0 images from exact source commits and dependency locks under `deploy/secure/`. Their final Linux runtime uses pinned Wolfi packages. The first Qdrant build compiles Rust and can take 30 minutes or more; subsequent builds can reuse the layer cache. The dashboard and Next.js builders use the same audited npm dependency graph under `web/build-tools/`. Package managers are omitted from the final standalone web image.
+
+The image workflows scan final images without ignoring unfixed advisories and exercise both AMD64 and ARM64. GPU-specific execution still needs compatible hardware/drivers. Apple Container mode uses the separately installed native Ollama service; the container rebuild does not update or audit that external installation. Review the maintained Dockerfiles and package pins when refreshing dependencies. The manual **Official reference acceptance** workflow runs real model-backed corpus indexing, retrieval, and cited answers against the rebuilt stack.
 
 Refresh the official corpus quarterly (January, April, July, October): review upstream release notes, update the exact commits in `scripts/sync-reference-docs.sh`, then run `make docs-sync`, `make docs-index`, and `make docs-acceptance` against a disposable stack. The current pins were checked on 2026-11-06; syncing them produced 392 pages. Terraform uses an exact commit fetch so future upstream HEAD changes do not break reproducibility.
