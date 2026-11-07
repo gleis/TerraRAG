@@ -5,7 +5,7 @@ API_URL=${API_URL:-http://127.0.0.1:8000}
 
 repository=$(curl -fsS -X POST "$API_URL/repositories" \
   -H 'Content-Type: application/json' \
-  -d '{"path":"reference-docs","name":"Official Terraform v1.15.x + Terragrunt v1.1.2 Docs"}')
+  -d '{"path":"reference-docs","name":"Official Terraform v1.17.x + Terragrunt v1.2.1 Docs"}')
 repository_id=$(printf '%s' "$repository" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
 
 echo "Indexing official reference corpus as $repository_id ..."
