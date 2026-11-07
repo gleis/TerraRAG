@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -f deploy/secure/Ollama.Dockerfile -t terrarag-ollama:review .
       - name: Exercise the libc charset boundary
         run: |
@@ -58,7 +58,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 55
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
