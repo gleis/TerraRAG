@@ -15,12 +15,11 @@ RUN node bin/npm-cli.js ci --omit=dev --ignore-scripts \
 
 FROM npm-tool AS dashboard
 WORKDIR /ui
-RUN apk add --no-cache git
 ADD https://codeload.github.com/qdrant/qdrant-web-ui/tar.gz/90a83dd67bb9e3f84cf62daed14a9489ae1e7fdd /tmp/ui.tar.gz
 RUN echo '5f0375093d04998456536f123882cfab67ed9ef0227c9761a046a82b45fcfb55  /tmp/ui.tar.gz' | sha256sum -c - && tar -xzf /tmp/ui.tar.gz --strip-components=1
 COPY deploy/secure/dashboard.package.json ./package.json
 COPY deploy/secure/dashboard.package-lock.json ./package-lock.json
-RUN npm ci && npm audit && npm run build-qdrant
+RUN npm ci --allow-remote=root && npm audit && npm run build-qdrant
 
 FROM rust:1.98.1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e AS build
 WORKDIR /src

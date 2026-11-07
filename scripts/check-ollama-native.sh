@@ -28,7 +28,15 @@ docker run --rm --entrypoint sh "$image" -ec '
     # precondition. Every other missing native dependency fails this check.
     # Check the selected backend directory plus the common Ollama directory,
     # not a union that could borrow a missing library from another variant.
-    output=$(LD_LIBRARY_PATH="$(dirname "$file"):/usr/lib/ollama:$system_library_path" "$loader" --list "$file" 2>&1) || {
+    backend_dir=$(dirname "$file")
+    backend_path=$backend_dir
+    case "${backend_dir##*/}" in
+      mlx_cuda_*)
+        cuda_dir="/usr/lib/ollama/${backend_dir##*/mlx_}"
+        if [ -d "$cuda_dir" ]; then backend_path="$backend_path:$cuda_dir"; fi
+        ;;
+    esac
+    output=$(LD_LIBRARY_PATH="$backend_path:/usr/lib/ollama:$system_library_path" "$loader" --list "$file" 2>&1) || {
       printf "%s\n" "$output"
       printf "%s\n" "$output" | grep -Eq "(libcuda.so.1|libnvidia-ml.so.1): cannot open shared object file" || exit 1
       printf "External NVIDIA driver required: %s\n" "$file"
