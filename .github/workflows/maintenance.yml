@@ -49,8 +49,8 @@ jobs:
           file: deploy/secure/Qdrant.Dockerfile
           tags: terrarag-qdrant:1.20.0-maintenance
           load: true
-          cache-from: type=gha,scope=qdrant-security
-          cache-to: type=gha,mode=max,scope=qdrant-security
+          cache-from: type=gha,scope=qdrant-security-${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=qdrant-security-${{ runner.arch }}
       - run: docker build -f deploy/secure/Ollama.Dockerfile -t terrarag-ollama:0.40.15-maintenance .
       - run: docker compose -f deploy/compose.yaml build api web
       - run: docker compose -f deploy/compose.yaml up --no-build -d

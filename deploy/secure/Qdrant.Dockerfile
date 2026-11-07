@@ -14,7 +14,8 @@ ADD https://codeload.github.com/qdrant/qdrant/tar.gz/222b2e44ab1c3f17e8246396ead
 RUN echo 'd7d6c5b6197b63b24a89c753bb8ff2e3c9a67e5186087c2018c280b9d0398d80  /tmp/source.tar.gz' | sha256sum -c - && tar -xzf /tmp/source.tar.gz --strip-components=1
 COPY deploy/secure/qdrant.Cargo.lock ./Cargo.lock
 ENV CARGO_BUILD_JOBS=2
-RUN test -f /usr/include/google/protobuf/timestamp.proto && cargo rustc --locked --release --features=stacktrace --bin qdrant -- -C link-arg=-llzma
+RUN test -f /usr/include/google/protobuf/timestamp.proto && cargo rustc --locked --release --features=stacktrace --bin qdrant -- -C link-arg=-llzma -C link-arg=-Wl,--push-state,--no-as-needed -C link-arg=-lgcc_s -C link-arg=-Wl,--pop-state
+RUN readelf -dW target/release/qdrant | grep 'Shared library: \[libgcc_s.so.1\]'
 RUN cargo install --locked cargo-sbom --version 0.10.0 && cargo sbom > /qdrant.spdx.json
 
 FROM qdrant/qdrant:v1.20.0@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2 AS upstream

@@ -1,0 +1,69 @@
+name: Application runtime images
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, maintenance/wolfi-runtime]
+permissions:
+  contents: read
+jobs:
+  images:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and validate Python runtime
+        run: |
+          docker build -t terrarag-api:review backend
+          expected=$(docker run --rm python:3.13-slim sh -ec 'groupadd --system terrarag; useradd --system --gid terrarag --home-dir /app terrarag; id -u terrarag; id -g terrarag')
+          actual=$(docker run --rm --entrypoint sh terrarag-api:review -c 'id -u; id -g')
+          test "$expected" = "$actual"
+          docker run --rm --user 1000:1000 --tmpfs /data:uid=1000,gid=1000,mode=0700 terrarag-api:review python -c 'from pathlib import Path; from app.storage import Storage; s=Storage(Path("/data/check.sqlite3")); assert s.list_repositories()==[]'
+      - name: Build and validate patched npm
+        run: |
+          docker build --target npm-tool -t terrarag-npm:review web
+          docker run --rm -v "$PWD/web/build-tools:/validation:ro" terrarag-npm:review node /validation/check-npm.mjs
+      - name: Build and start standalone web server
+        run: |
+          docker build -t terrarag-web:review web
+          docker run -d --name web-check -p 127.0.0.1:13000:3000 terrarag-web:review
+          for i in $(seq 1 60); do curl -fsS http://127.0.0.1:13000/ -o /tmp/page.html && break; sleep 1; done
+          grep -q TerraRAG /tmp/page.html
+          docker exec web-check sh -ec '! command -v npm; ! command -v yarn'
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: terrarag-api:review
+          scanners: vuln
+          format: json
+          output: api-image.json
+          exit-code: '1'
+          ignore-unfixed: false
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: terrarag-npm:review
+          scanners: vuln
+          format: json
+          output: npm-image.json
+          exit-code: '1'
+          ignore-unfixed: false
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.76.2
+          image-ref: terrarag-web:review
+          scanners: vuln
+          format: json
+          output: web-image.json
+          exit-code: '1'
+          ignore-unfixed: false
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: application-images-${{ runner.arch }}
+          path: '*-image.json'
+      - if: always()
+        run: docker logs web-check; docker rm -f web-check
