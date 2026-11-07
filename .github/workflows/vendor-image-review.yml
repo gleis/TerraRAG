@@ -44,7 +44,15 @@ jobs:
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -f deploy/secure/Qdrant.Dockerfile -t terrarag-qdrant:review .
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/secure/Qdrant.Dockerfile
+          tags: terrarag-qdrant:review
+          load: true
+          cache-from: type=gha,scope=qdrant-security
+          cache-to: type=gha,mode=max,scope=qdrant-security
       - run: |
           docker run -d --name qdrant-check -p 127.0.0.1:6333:6333 terrarag-qdrant:review
           for i in $(seq 1 60); do curl -f http://127.0.0.1:6333/healthz && break; sleep 1; done
