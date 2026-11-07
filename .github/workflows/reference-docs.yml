@@ -11,7 +11,7 @@ jobs:
       LLM_MODEL: qwen3:1.7b
       EMBEDDING_MODEL: qwen3-embedding:0.6b
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Fetch the pinned official corpus
         run: make docs-sync
       - uses: docker/setup-buildx-action@v3
