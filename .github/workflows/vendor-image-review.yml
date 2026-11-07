@@ -2,7 +2,7 @@ name: Vendor image review
 on:
   workflow_dispatch:
   push:
-    branches: [maintenance/vendor-image-security]
+    branches: [maintenance/vendor-image-security, maintenance/wolfi-runtime]
 concurrency:
   group: vendor-image-${{ github.ref }}
   cancel-in-progress: true
@@ -10,7 +10,10 @@ permissions:
   contents: read
 jobs:
   ollama:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -31,16 +34,20 @@ jobs:
           scanners: vuln
           format: json
           output: ollama-review.json
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: false
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: ollama-review
+          name: ollama-review-${{ runner.arch }}
           path: ollama-review.json
       - if: always()
         run: docker logs ollama-check; docker rm -f ollama-check
   qdrant:
-    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
@@ -51,8 +58,8 @@ jobs:
           file: deploy/secure/Qdrant.Dockerfile
           tags: terrarag-qdrant:review
           load: true
-          cache-from: type=gha,scope=qdrant-security
-          cache-to: type=gha,mode=max,scope=qdrant-security
+          cache-from: type=gha,scope=qdrant-security-${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=qdrant-security-${{ runner.arch }}
       - run: |
           docker run -d --name qdrant-check -p 127.0.0.1:6333:6333 terrarag-qdrant:review
           for i in $(seq 1 60); do curl -f http://127.0.0.1:6333/healthz && break; sleep 1; done
@@ -69,11 +76,12 @@ jobs:
           scanners: vuln
           format: json
           output: qdrant-review.json
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: false
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: qdrant-review
+          name: qdrant-review-${{ runner.arch }}
           path: qdrant-review.json
       - if: always()
         run: docker logs qdrant-check; docker rm -f qdrant-check

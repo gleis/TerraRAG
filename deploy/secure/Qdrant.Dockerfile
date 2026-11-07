@@ -17,9 +17,16 @@ ENV CARGO_BUILD_JOBS=2
 RUN test -f /usr/include/google/protobuf/timestamp.proto && cargo rustc --locked --release --features=stacktrace --bin qdrant -- -C link-arg=-llzma
 RUN cargo install --locked cargo-sbom --version 0.10.0 && cargo sbom > /qdrant.spdx.json
 
-FROM qdrant/qdrant:v1.20.0@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2
-RUN apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+FROM qdrant/qdrant:v1.20.0@sha256:9bfc89f9914fc14876a88c05270685921a55b8877b254a98bcc1cc2f0a424cd2 AS upstream
+FROM cgr.dev/chainguard/wolfi-base@sha256:8509ee4351a2e501b7f98201f2e2642396e82020c61a589cacdcfe74b9de46c1
+RUN apk add --no-cache bash=5.3-r14 libstdc++=16.2.0-r2 libunwind=1.8.3-r7 xz=5.8.4-r1 tzdata=2026f-r0
+COPY --from=upstream /qdrant/config /qdrant/config
+COPY --from=upstream /qdrant/entrypoint.sh /qdrant/entrypoint.sh
 COPY --from=build /src/target/release/qdrant /qdrant/qdrant
 COPY --from=build /qdrant.spdx.json /qdrant/qdrant.spdx.json
-RUN rm -rf /qdrant/static
 COPY --from=dashboard /ui/dist /qdrant/static
+WORKDIR /qdrant
+USER 0:0
+ENV TZ=Etc/UTC RUN_MODE=production
+EXPOSE 6333 6334
+CMD ["./entrypoint.sh"]
