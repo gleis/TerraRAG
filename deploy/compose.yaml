@@ -2,7 +2,10 @@ name: terrarag
 
 services:
   ollama:
-    image: ollama/ollama:0.40.15
+    image: terrarag-ollama:0.40.15-maintenance
+    build:
+      context: ..
+      dockerfile: deploy/secure/Ollama.Dockerfile
     restart: unless-stopped
     volumes:
       - ollama-data:/root/.ollama
@@ -15,7 +18,10 @@ services:
       - no-new-privileges:true
 
   qdrant:
-    image: qdrant/qdrant:v1.20.0
+    image: terrarag-qdrant:1.20.0-maintenance
+    build:
+      context: ..
+      dockerfile: deploy/secure/Qdrant.Dockerfile
     restart: unless-stopped
     ports:
       - "127.0.0.1:6333:6333"
