@@ -40,7 +40,7 @@ jobs:
           for i in $(seq 1 60); do curl -fsS http://127.0.0.1:13000/ -o /tmp/page.html && break; sleep 1; done
           grep -q TerraRAG /tmp/page.html
           docker exec web-check sh -ec '! command -v npm; ! command -v yarn'
-      - uses: aquasecurity/trivy-action@0.35.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: v0.76.2
           image-ref: terrarag-api:review
@@ -49,7 +49,7 @@ jobs:
           output: api-image.json
           exit-code: '1'
           ignore-unfixed: false
-      - uses: aquasecurity/trivy-action@0.35.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: v0.76.2
           image-ref: terrarag-npm:review
@@ -58,7 +58,7 @@ jobs:
           output: npm-image.json
           exit-code: '1'
           ignore-unfixed: false
-      - uses: aquasecurity/trivy-action@0.35.0
+      - uses: aquasecurity/trivy-action@v0.36.0
         with:
           version: v0.76.2
           image-ref: terrarag-web:review
